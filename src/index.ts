@@ -10,6 +10,7 @@ import {
   TRIGGER_PATTERN,
 } from './config.js';
 import { startCredentialProxy } from './credential-proxy.js';
+import { readEnvFile } from './env.js';
 import './channels/index.js';
 import {
   getChannelFactory,
@@ -44,6 +45,7 @@ import {
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
 import { startIpcWatcher } from './ipc.js';
+import { initBotPool } from './channels/telegram.js';
 import { findChannel, formatMessages, formatOutbound } from './router.js';
 import {
   restoreRemoteControl,
@@ -319,6 +321,7 @@ async function runAgent(
         chatJid,
         isMain,
         assistantName: ASSISTANT_NAME,
+        model: group.containerConfig?.model,
       },
       (proc, containerName) =>
         queue.registerProcess(chatJid, proc, containerName, group.folder),
@@ -594,6 +597,20 @@ async function main(): Promise<void> {
   if (channels.length === 0) {
     logger.fatal('No channels connected');
     process.exit(1);
+  }
+
+  // Initialize Telegram bot pool for agent swarms (if configured)
+  const poolEnv = readEnvFile(['TELEGRAM_BOT_POOL']);
+  const poolTokens = (
+    process.env.TELEGRAM_BOT_POOL ||
+    poolEnv.TELEGRAM_BOT_POOL ||
+    ''
+  )
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (poolTokens.length > 0) {
+    await initBotPool(poolTokens);
   }
 
   // Start subsystems (independently of connection handler)
