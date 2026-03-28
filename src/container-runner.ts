@@ -201,7 +201,11 @@ function buildVolumeMounts(
   });
 
   // Mount Firebase service account credentials (read-only, bypasses user allowlist)
-  const firebaseCredPath = path.join(projectRoot, 'credentials', 'firebase-home.json');
+  const firebaseCredPath = path.join(
+    projectRoot,
+    'credentials',
+    'firebase-home.json',
+  );
   if (fs.existsSync(firebaseCredPath)) {
     mounts.push({
       hostPath: firebaseCredPath,
@@ -239,7 +243,10 @@ function buildContainerArgs(
   );
 
   // Firebase service account (mounted read-only from host credentials/)
-  args.push('-e', 'GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/firebase-home.json');
+  args.push(
+    '-e',
+    'GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/firebase-home.json',
+  );
 
   // Mirror the host's auth method with a placeholder value.
   // API key mode: SDK sends x-api-key, proxy replaces with real key.
