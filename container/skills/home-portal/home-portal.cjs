@@ -1,0 +1,169 @@
+#!/usr/bin/env node
+/**
+ * Home Portal CLI — Firestore interface for household data
+ *
+ * Usage:
+ *   node home-portal.cjs list   tasks|events|notes
+ *   node home-portal.cjs create task   '<json>'
+ *   node home-portal.cjs create event  '<json>'
+ *   node home-portal.cjs create note   '<json>'
+ *
+ * Credentials: GOOGLE_APPLICATION_CREDENTIALS env var (set by container runner)
+ * Project: temple-park-ave-bf1a3
+ */
+
+'use strict';
+
+const admin = require('firebase-admin');
+
+const PROJECT_ID = 'temple-park-ave-bf1a3';
+const HOUSEHOLD = 'home';
+
+// ── Initialise Firebase ───────────────────────────────────────────────────────
+
+let app;
+try {
+  const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!credPath) {
+    console.error('GOOGLE_APPLICATION_CREDENTIALS is not set');
+    process.exit(1);
+  }
+  const serviceAccount = require(credPath);
+  app = admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    projectId: PROJECT_ID,
+  });
+} catch (err) {
+  console.error('Failed to initialise Firebase:', err.message);
+  process.exit(1);
+}
+
+const db = admin.firestore(app);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function slugify(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function householdCol(type) {
+  return db.collection('households').doc(HOUSEHOLD).collection(type);
+}
+
+function formatDate(val) {
+  if (!val) return null;
+  if (val && typeof val.toDate === 'function') return val.toDate().toISOString();
+  return val;
+}
+
+// ── List ──────────────────────────────────────────────────────────────────────
+
+async function listDocs(type) {
+  const snap = await householdCol(type).orderBy('createdAt', 'desc').get();
+  if (snap.empty) {
+    console.log(`No ${type} found.`);
+    return;
+  }
+  const rows = snap.docs.map((doc) => {
+    const d = doc.data();
+    return { id: doc.id, ...d, createdAt: formatDate(d.createdAt) };
+  });
+
+  if (type === 'tasks') {
+    rows.forEach((r) => {
+      const due = r.due ? ` | due: ${r.due}` : '';
+      const status = r.status ? ` [${r.status}]` : '';
+      console.log(`• ${r.id}${status}`);
+      console.log(`  ${r.name}${due}`);
+      if (r.description) console.log(`  ${r.description}`);
+    });
+  } else if (type === 'events') {
+    rows.forEach((r) => {
+      const date = r.date ? ` | ${r.date}` : '';
+      const loc = r.location ? ` @ ${r.location}` : '';
+      console.log(`• ${r.id}`);
+      console.log(`  ${r.name}${date}${loc}`);
+      if (r.description) console.log(`  ${r.description}`);
+    });
+  } else {
+    rows.forEach((r) => {
+      console.log(`• ${r.id}`);
+      console.log(`  ${r.name}`);
+      if (r.content) console.log(`  ${r.content}`);
+    });
+  }
+}
+
+// ── Create ────────────────────────────────────────────────────────────────────
+
+async function createDoc(type, jsonArg) {
+  let fields;
+  try {
+    fields = JSON.parse(jsonArg);
+  } catch {
+    console.error('Invalid JSON argument');
+    process.exit(1);
+  }
+
+  if (!fields.title || typeof fields.title !== 'string') {
+    console.error('"title" field is required');
+    process.exit(1);
+  }
+
+  const now = Date.now();
+  const id = `${slugify(fields.title)}-${now}`;
+
+  const doc = {
+    ...fields,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (type === 'tasks' && !doc.status) {
+    doc.status = 'todo';
+  }
+
+  await householdCol(type).doc(id).set(doc);
+  console.log(`Created ${type.slice(0, -1)}: ${id}`);
+  console.log(JSON.stringify({ id, ...fields }, null, 2));
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const [, , command, subcommand, jsonArg] = process.argv;
+
+  const VALID_TYPES = ['tasks', 'events', 'notes'];
+
+  if (command === 'list') {
+    if (!VALID_TYPES.includes(subcommand)) {
+      console.error(`Usage: home-portal.cjs list tasks|events|notes`);
+      process.exit(1);
+    }
+    await listDocs(subcommand);
+  } else if (command === 'create') {
+    if (!VALID_TYPES.includes(subcommand)) {
+      console.error(`Usage: home-portal.cjs create task|event|note '<json>'`);
+      process.exit(1);
+    }
+    // Normalise singular → plural collection name
+    const colName = subcommand.endsWith('s') ? subcommand : subcommand + 's';
+    if (!jsonArg) {
+      console.error('JSON argument is required for create');
+      process.exit(1);
+    }
+    await createDoc(colName, jsonArg);
+  } else {
+    console.error('Usage: home-portal.cjs <list|create> <type> [json]');
+    process.exit(1);
+  }
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error('Error:', err.message);
+    process.exit(1);
+  });

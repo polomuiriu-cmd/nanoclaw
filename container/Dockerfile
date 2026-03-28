@@ -42,6 +42,9 @@ COPY agent-runner/package*.json ./
 # Install dependencies
 RUN npm install
 
+# Expose node_modules to standalone scripts (e.g. container/skills/)
+ENV NODE_PATH=/app/node_modules
+
 # Copy source code
 COPY agent-runner/ ./
 

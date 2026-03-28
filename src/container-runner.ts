@@ -200,6 +200,16 @@ function buildVolumeMounts(
     readonly: false,
   });
 
+  // Mount Firebase service account credentials (read-only, bypasses user allowlist)
+  const firebaseCredPath = path.join(projectRoot, 'credentials', 'firebase-home.json');
+  if (fs.existsSync(firebaseCredPath)) {
+    mounts.push({
+      hostPath: firebaseCredPath,
+      containerPath: '/run/secrets/firebase-home.json',
+      readonly: true,
+    });
+  }
+
   // Additional mounts validated against external allowlist (tamper-proof from containers)
   if (group.containerConfig?.additionalMounts) {
     const validatedMounts = validateAdditionalMounts(
@@ -227,6 +237,9 @@ function buildContainerArgs(
     '-e',
     `ANTHROPIC_BASE_URL=http://${CONTAINER_HOST_GATEWAY}:${CREDENTIAL_PROXY_PORT}`,
   );
+
+  // Firebase service account (mounted read-only from host credentials/)
+  args.push('-e', 'GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/firebase-home.json');
 
   // Mirror the host's auth method with a placeholder value.
   // API key mode: SDK sends x-api-key, proxy replaces with real key.
