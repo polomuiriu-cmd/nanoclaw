@@ -321,7 +321,7 @@ async function runAgent(
         chatJid,
         isMain,
         assistantName: ASSISTANT_NAME,
-        model: group.containerConfig?.model,
+        model: group.containerConfig?.model ?? 'claude-haiku-4-5-20251001',
       },
       (proc, containerName) =>
         queue.registerProcess(chatJid, proc, containerName, group.folder),
