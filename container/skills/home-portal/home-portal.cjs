@@ -91,8 +91,7 @@ async function listDocs(type) {
   } else {
     rows.forEach((r) => {
       console.log(`• ${r.id}`);
-      console.log(`  ${r.name}`);
-      if (r.content) console.log(`  ${r.content}`);
+      if (r.text) console.log(`  ${r.text}`);
     });
   }
 }
@@ -108,13 +107,14 @@ async function createDoc(type, jsonArg) {
     process.exit(1);
   }
 
-  if (!fields.title || typeof fields.title !== 'string') {
-    console.error('"title" field is required');
+  const nameField = type === 'notes' ? 'text' : 'name';
+  if (!fields[nameField] || typeof fields[nameField] !== 'string') {
+    console.error(`"${nameField}" field is required`);
     process.exit(1);
   }
 
   const now = Date.now();
-  const id = `${slugify(fields.title)}-${now}`;
+  const id = `${slugify(fields[nameField])}-${now}`;
 
   const doc = {
     ...fields,
