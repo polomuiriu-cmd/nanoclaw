@@ -62,6 +62,26 @@ node /home/node/.claude/skills/home-portal/home-portal.cjs create note \
 
 ---
 
+## UPDATE operations
+
+**STOP — confirmation gate:** Same as write operations — confirm with the user before running any update.
+
+```bash
+# Update arbitrary task fields
+node /home/node/.claude/skills/home-portal/home-portal.cjs update task <taskId> \
+  '{"status":"done"}'
+
+# Mark a task complete (appends to completions array via arrayUnion)
+node /home/node/.claude/skills/home-portal/home-portal.cjs update task <taskId> \
+  '{"completions":[{"by":"polomuiriu@gmail.com","date":"2026-03-31"}]}'
+```
+
+The `completions` field uses `FieldValue.arrayUnion` — entries are appended, never overwritten. Each completion entry has the shape `{ "by": "<email>", "date": "YYYY-MM-DD" }`.
+
+Only `task` is supported as the subcommand for update.
+
+---
+
 ## Troubleshooting
 
 If the script fails with a credentials error, check:

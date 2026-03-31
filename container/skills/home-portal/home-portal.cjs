@@ -130,10 +130,34 @@ async function createDoc(type, jsonArg) {
   console.log(JSON.stringify({ id, ...fields }, null, 2));
 }
 
+// ── Update ────────────────────────────────────────────────────────────────────
+
+async function updateDoc(type, taskId, jsonArg) {
+  let fields;
+  try {
+    fields = JSON.parse(jsonArg);
+  } catch {
+    console.error('Invalid JSON argument');
+    process.exit(1);
+  }
+
+  const update = { ...fields };
+
+  if (update.completions !== undefined) {
+    // Replace completions array with arrayUnion to append entries
+    const entries = Array.isArray(update.completions) ? update.completions : [update.completions];
+    update.completions = admin.firestore.FieldValue.arrayUnion(...entries);
+  }
+
+  const ref = householdCol(type).doc(taskId);
+  await ref.update(update);
+  console.log(`Updated ${type.slice(0, -1)}: ${taskId}`);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const [, , command, subcommand, jsonArg] = process.argv;
+  const [, , command, subcommand, arg1, arg2] = process.argv;
 
   const VALID_TYPES = ['tasks', 'events', 'notes'];
 
@@ -150,13 +174,25 @@ async function main() {
     }
     // Normalise singular → plural collection name
     const colName = subcommand.endsWith('s') ? subcommand : subcommand + 's';
-    if (!jsonArg) {
+    if (!arg1) {
       console.error('JSON argument is required for create');
       process.exit(1);
     }
-    await createDoc(colName, jsonArg);
+    await createDoc(colName, arg1);
+  } else if (command === 'update') {
+    if (subcommand !== 'task') {
+      console.error(`Usage: home-portal.cjs update task <taskId> '<json>'`);
+      process.exit(1);
+    }
+    const taskId = arg1;
+    const jsonArg = arg2;
+    if (!taskId || !jsonArg) {
+      console.error(`Usage: home-portal.cjs update task <taskId> '<json>'`);
+      process.exit(1);
+    }
+    await updateDoc('tasks', taskId, jsonArg);
   } else {
-    console.error('Usage: home-portal.cjs <list|create> <type> [json]');
+    console.error('Usage: home-portal.cjs <list|create|update> <type> [args]');
     process.exit(1);
   }
 }
