@@ -62,7 +62,7 @@ Promise.all([
     tomorrowEvents.length?tomorrowEvents.map(e=>'• '+e.title+' — '+fmt(e.startHour,e.startMin)).join('\n'):'None',
     '',
     '\u{1F4CC} *Pinned notes*',
-    pinned.length?pinned.map(n=>'• '+(n.title||'')+(n.content?': '+n.content:'')).join('\n'):'None',
+    pinned.length?pinned.map(n=>'• '+n.text.replace(/\n/g,', ')).join('\n'):'None',
   ];
 
   const cache={
