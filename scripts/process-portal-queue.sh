@@ -2,7 +2,6 @@
 QUEUE_FILE="/home/polomuiriu/nanoclaw/groups/telegram_main/portal-write-queue.json"
 LOG="/home/polomuiriu/nanoclaw/logs/portal-queue.log"
 
-# If no queue file or empty array, exit silently
 if [ ! -f "$QUEUE_FILE" ]; then exit 0; fi
 COUNT=$(node -e "const q=JSON.parse(require('fs').readFileSync('$QUEUE_FILE'));console.log(q.length);")
 if [ "$COUNT" = "0" ]; then exit 0; fi
@@ -18,7 +17,7 @@ docker run --rm \
   -e "
 const admin=require('firebase-admin');
 const fs=require('fs');
-const QUEUE='$QUEUE_FILE';
+const QUEUE='/workspace/group/portal-write-queue.json';
 
 admin.initializeApp({credential:admin.credential.applicationDefault(),projectId:'temple-park-ave-bf1a3'});
 const db=admin.firestore();
@@ -58,7 +57,6 @@ async function processItem(item){
     try{ await processItem(item); }
     catch(e){ errors.push({item,error:e.message}); }
   }
-  // Only clear successfully processed items
   if(errors.length){
     fs.writeFileSync(QUEUE,JSON.stringify(errors.map(e=>e.item),null,2));
     console.error('Errors:',JSON.stringify(errors));
