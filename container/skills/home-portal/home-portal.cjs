@@ -85,7 +85,7 @@ async function listDocs(type) {
       const date = r.date ? ` | ${r.date}` : '';
       const loc = r.location ? ` @ ${r.location}` : '';
       console.log(`• ${r.id}`);
-      console.log(`  ${r.name}${date}${loc}`);
+      console.log(`  ${r.title}${date}${loc}`);
       if (r.description) console.log(`  ${r.description}`);
     });
   } else {
